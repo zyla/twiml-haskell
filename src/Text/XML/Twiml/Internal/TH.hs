@@ -103,7 +103,7 @@ hasAttributes = not . null . getAllAttributes . parameters
 attributeToVarStrictType :: (String -> String) -> Attribute -> VarStrictType
 attributeToVarStrictType f Attribute{..} =
   ( mkName $ f attributeName
-  , IsStrict
+  , Bang NoSourceUnpackedness SourceStrict
   , AppT (ConT $ mkName "Maybe") (ConT $ mkName attributeType)
   )
 
@@ -168,11 +168,11 @@ specToToXML spec@(TwimlSpec{..}) = UInfixE (AppE (AppE (AppE (VarE $ mkName "mak
     else ListE []
 
 specToStrictTypes :: TwimlSpec -> [StrictType]
-specToStrictTypes spec@(TwimlSpec{..}) = go parameters ++ [(NotStrict, VarT $ mkName "a") | recursive] where
+specToStrictTypes spec@(TwimlSpec{..}) = go parameters ++ [(Bang NoSourceUnpackedness NoSourceStrictness, VarT $ mkName "a") | recursive] where
   go [] = []
   go (Required   as :bs) = map stringToStrictType as ++ go bs
-  go (Attributes _  :bs) = (NotStrict, ConT $ specToAttributesName spec) : go bs
-  stringToStrictType a = (NotStrict, ConT $ mkName a)
+  go (Attributes _  :bs) = (Bang NoSourceUnpackedness NoSourceStrictness, ConT $ specToAttributesName spec) : go bs
+  stringToStrictType a = (Bang NoSourceUnpackedness NoSourceStrictness, ConT $ mkName a)
 
 gadtToDefExp :: TwimlSpec -> [Parameters] -> Exp
 gadtToDefExp spec@(TwimlSpec{..}) = go (ConE $ specToGADTName spec) . foldr ((+) . count) (if recursive then 1 else 0) where
@@ -294,7 +294,8 @@ twimlSpecToData spec@(TwimlSpec{..}) = pure $
     conName = mkName twimlName
 
     -- | @data Foo@
-    emptyDataDecl = DataD [] conName [] [] []
+    emptyDataDecl :: Dec
+    emptyDataDecl = DataD [] conName [] Nothing [] []
 
     -- | Type variables @i :: [*]@ and @a@
     i' = mkName "i"
@@ -326,7 +327,7 @@ twimlSpecToData spec@(TwimlSpec{..}) = pure $
         . NormalC conNameF $ specToStrictTypes spec
 
     -- | @data FooF i a where FooF :: a -> FooF '[Foo] a@
-    gadt = DataD [] conNameF tyVarBndrs [con] []
+    gadt = DataD [] conNameF tyVarBndrs Nothing [con] []
 
     dataN = mkName "Data"
     dataC = ConT dataN
@@ -368,7 +369,7 @@ twimlSpecToData spec@(TwimlSpec{..}) = pure $
     toXMLC = ConT toXMLN
 
     -- | @instance Default a => Default (FooF i a) where def = FooF def ...@
-    instanceDefaultForGADT = InstanceD [AppT defaultC a] (AppT defaultC (AppT (AppT (ConT conNameF) list) a)) [ValD (VarP $ mkName "def") (NormalB $ gadtToDefExp spec parameters) []]
+    instanceDefaultForGADT = InstanceD Nothing [AppT defaultC a] (AppT defaultC (AppT (AppT (ConT conNameF) list) a)) [ValD (VarP $ mkName "def") (NormalB $ gadtToDefExp spec parameters) []]
 
     -- | @deriving instance Data a => Data (FooF i a)@
     deriveDataForGADT = StandaloneDerivD [AppT dataC a] $ AppT dataC (AppT (AppT (ConT conNameF) list) a)
@@ -380,10 +381,10 @@ twimlSpecToData spec@(TwimlSpec{..}) = pure $
     deriveFunctorForGADT = StandaloneDerivD [] $ AppT functorC (AppT (ConT conNameF) i)
 
     -- | @instance Functor1 FooF where fmap1 = fmap@
-    instanceFunctor1ForGADT = InstanceD [] (AppT functor1C $ ConT conNameF) [ValD (VarP $ mkName "fmap1") (NormalB . VarE $ mkName "fmap") []]
+    instanceFunctor1ForGADT = InstanceD Nothing [] (AppT functor1C $ ConT conNameF) [ValD (VarP $ mkName "fmap1") (NormalB . VarE $ mkName "fmap") []]
 
     -- | @instance NFData a => NFData (FooF i a) where rnf (FooF a ...) = rnf a `seq` ...@
-    instanceNFDataForGADT = InstanceD [AppT nfdataC a] (AppT nfdataC (AppT (AppT (ConT conNameF) list) a)) [FunD (mkName "rnf") [Clause [specToGADTPat spec] (NormalB . rnfI $ specToGADTArity spec) []]]
+    instanceNFDataForGADT = InstanceD Nothing [AppT nfdataC a] (AppT nfdataC (AppT (AppT (ConT conNameF) list) a)) [FunD (mkName "rnf") [Clause [specToGADTPat spec] (NormalB . rnfI $ specToGADTArity spec) []]]
 
     -- | @deriving instance Ord a => Ord (FooF i a)@
     deriveOrdForGADT = StandaloneDerivD [AppT ordC a] $ AppT ordC (AppT (AppT (ConT conNameF) i) a)
@@ -395,7 +396,10 @@ twimlSpecToData spec@(TwimlSpec{..}) = pure $
     deriveShowForGADT = StandaloneDerivD [AppT showC a] $ AppT showC (AppT (AppT (ConT conNameF) i) a)
 
     -- | @instance ToXML a => ToXML (FooF i a) where toXML (FooF a ...) = makeElement "Foo" a ...@
-    instanceToXMLForGADT = InstanceD [AppT toXMLC a | recursive] (AppT toXMLC (AppT (AppT (ConT conNameF) i) a))
+    instanceToXMLForGADT :: Dec
+    instanceToXMLForGADT = InstanceD Nothing
+      [AppT toXMLC a | recursive]
+      (AppT toXMLC (AppT (AppT (ConT conNameF) i) a))
       [FunD (mkName "toXML") [Clause [specToGADTPat spec] (NormalB $ specToToXML spec) []]]
 
     attrPrefix = '_' : map toLower twimlName
@@ -406,9 +410,15 @@ twimlSpecToData spec@(TwimlSpec{..}) = pure $
     -- | @data FooAttributes = FooAttributes{..} deriving (Data, Eq, Ord, Read, Show)@
     --
     -- All record fields should be camelCased and prefixed with "_foo".
-    attributes = DataD [] attributesName [] [RecC attributesName (parametersToVarStrictTypes makeAttr parameters)] [dataN, eqN, genericN, nfdataN, ordN, readN, showN]
+    attributes = DataD
+      [] -- Cxt
+      attributesName -- Name
+      [] -- [TyVarBndr]
+      Nothing -- Maybe Kind
+      [RecC attributesName (parametersToVarStrictTypes makeAttr parameters)] -- [Con]
+      [dataC, eqC, genericC, nfdataC, ordC, readC, showC] -- Cxt
 
     -- | @instance Default FooAttributes where def = FooAttributes def ...@
-    instanceDefaultForAttributes = InstanceD [] (AppT defaultC $ ConT attributesName) [ValD (VarP $ mkName "def") (NormalB $ attributesToDefExp (ConE attributesName) parameters) []]
+    instanceDefaultForAttributes = InstanceD Nothing [] (AppT defaultC $ ConT attributesName) [ValD (VarP $ mkName "def") (NormalB $ attributesToDefExp (ConE attributesName) parameters) []]
 
-    instanceToAttrsForAttributes = InstanceD [] (AppT toAttrsC $ ConT attributesName) [ValD (VarP $ mkName "toAttrs") (NormalB (AppE (AppE (VarE $ mkName "flip") (VarE $ mkName "makeAttrs")) (specToAttributesListE spec))) []]
+    instanceToAttrsForAttributes = InstanceD Nothing [] (AppT toAttrsC $ ConT attributesName) [ValD (VarP $ mkName "toAttrs") (NormalB (AppE (AppE (VarE $ mkName "flip") (VarE $ mkName "makeAttrs")) (specToAttributesListE spec))) []]

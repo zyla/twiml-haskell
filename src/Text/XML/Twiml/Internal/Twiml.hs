@@ -259,6 +259,7 @@ instance (f i :<: ( ClientF     i :+:
                     NumberF     i :+:
                     QueueF      i :+:
                     SipF        i )
+         , Functor (f i)
          ) => f i :<: DialNounF i where
   inj = DialNounF . inj
   prj = prj . getDialNounF
@@ -602,6 +603,7 @@ instance (f i :<: ( SayF      i :+:
                     RejectF   i :+:
                     PauseF    i :+:
                     EndF      i )
+         , Functor (f i)
          ) => f i :<: VoiceVerbsF i where
   inj = VoiceVerbsF . inj
   prj = prj . getVoiceVerbsF
@@ -642,6 +644,7 @@ instance (f i :<: ( MessageF  i :+:
                     RedirectF i :+:
                     SmsF      i :+:
                     EndF      i )
+         , Functor (f i)
          ) => f i :<: MessagingVerbsF i where
   inj = MessagingVerbsF . inj
   prj = prj . getMessagingVerbsF
