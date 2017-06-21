@@ -1,0 +1,14 @@
+> example :: VoiceTwiml
+> example =
+>   response $ do
+>     dial "415-123-4567" def
+>     redirect (fromJust $ parseURL "http://www.foo.com/nextInstructions") def
+>     end
+>   where Twiml.Syntax{..} = def
+
+>>> show example
+<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Dial>415-123-4567</Dial>
+  <Redirect>http://www.foo.com/nextInstructions</Redirect>
+</Response>

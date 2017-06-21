@@ -1,0 +1,12 @@
+> example :: VoiceTwiml
+> example =
+>   response $ do
+>     enqueue "support" $ def & waitURL .~ parseURL "wait-music.xml"
+>     end
+>   where Twiml.Syntax{..} = def
+
+>>> show example
+<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Enqueue waitUrl="wait-music.xml">support</Enqueue>
+</Response>

@@ -1,0 +1,12 @@
+> example :: VoiceTwiml
+> example =
+>   response $ do
+>     reject $ def & reason .~ Just Busy
+>     end
+>   where Twiml.Syntax{..} = def
+
+>>> show example
+<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Reject reason="busy" />
+</Response>

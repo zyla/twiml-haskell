@@ -1,0 +1,12 @@
+> example :: VoiceTwiml
+> example =
+>   response $ do
+>     play' Nothing $ def & digits .~ Just [W, W, W, W, D3]
+>     end
+>   where Twiml.Syntax{..} = def
+
+>>> show example
+<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Play digits="wwww3" />
+</Response>

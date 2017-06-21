@@ -1,0 +1,19 @@
+> example :: VoiceTwiml
+> example =
+>   response $ do
+>     gather (def & action .~ parseURL "/process_gather.php"
+>                  & method .~ Just GET) $ do
+>       say "Please enter your account number, followed by the pound sign" def
+>       end
+>     say "We didn't receive any input. Goodbye!" def
+>     end
+>   where Twiml.Syntax{..} = def
+
+>>> show example
+<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Gather action="/process_gather.php" method="GET">
+    <Say>Please enter your account number, followed by the pound sign</Say>
+  </Gather>
+  <Say>We didn&#39;t receive any input. Goodbye!</Say>
+</Response>
