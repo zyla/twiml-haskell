@@ -368,17 +368,19 @@ twimlSpecToData spec@(TwimlSpec{..}) = pure $
     toXMLN = mkName "ToXML"
     toXMLC = ConT toXMLN
 
+    standaloneDerivD = StandaloneDerivD Nothing
+
     -- | @instance Default a => Default (FooF i a) where def = FooF def ...@
     instanceDefaultForGADT = InstanceD Nothing [AppT defaultC a] (AppT defaultC (AppT (AppT (ConT conNameF) list) a)) [ValD (VarP $ mkName "def") (NormalB $ gadtToDefExp spec parameters) []]
 
     -- | @deriving instance Data a => Data (FooF i a)@
-    deriveDataForGADT = StandaloneDerivD [AppT dataC a] $ AppT dataC (AppT (AppT (ConT conNameF) list) a)
+    deriveDataForGADT = standaloneDerivD [AppT dataC a] $ AppT dataC (AppT (AppT (ConT conNameF) list) a)
 
     -- | @deriving instance Eq a => Eq (FooF i a)@
-    deriveEqForGADT = StandaloneDerivD [AppT eqC a] $ AppT eqC (AppT (AppT (ConT conNameF) i) a)
+    deriveEqForGADT = standaloneDerivD [AppT eqC a] $ AppT eqC (AppT (AppT (ConT conNameF) i) a)
 
     -- | @deriving instance Functor (FooF i)@
-    deriveFunctorForGADT = StandaloneDerivD [] $ AppT functorC (AppT (ConT conNameF) i)
+    deriveFunctorForGADT = standaloneDerivD [] $ AppT functorC (AppT (ConT conNameF) i)
 
     -- | @instance Functor1 FooF where fmap1 = fmap@
     instanceFunctor1ForGADT = InstanceD Nothing [] (AppT functor1C $ ConT conNameF) [ValD (VarP $ mkName "fmap1") (NormalB . VarE $ mkName "fmap") []]
@@ -387,13 +389,13 @@ twimlSpecToData spec@(TwimlSpec{..}) = pure $
     instanceNFDataForGADT = InstanceD Nothing [AppT nfdataC a] (AppT nfdataC (AppT (AppT (ConT conNameF) list) a)) [FunD (mkName "rnf") [Clause [specToGADTPat spec] (NormalB . rnfI $ specToGADTArity spec) []]]
 
     -- | @deriving instance Ord a => Ord (FooF i a)@
-    deriveOrdForGADT = StandaloneDerivD [AppT ordC a] $ AppT ordC (AppT (AppT (ConT conNameF) i) a)
+    deriveOrdForGADT = standaloneDerivD [AppT ordC a] $ AppT ordC (AppT (AppT (ConT conNameF) i) a)
 
     -- | @deriving instance Read a => Read (FooF i a)@
-    deriveReadForGADT = StandaloneDerivD [AppT readC a] $ AppT readC (AppT (AppT (ConT conNameF) list) a)
+    deriveReadForGADT = standaloneDerivD [AppT readC a] $ AppT readC (AppT (AppT (ConT conNameF) list) a)
 
     -- | @deriving instance Show a => Show (FooF i a)@
-    deriveShowForGADT = StandaloneDerivD [AppT showC a] $ AppT showC (AppT (AppT (ConT conNameF) i) a)
+    deriveShowForGADT = standaloneDerivD [AppT showC a] $ AppT showC (AppT (AppT (ConT conNameF) i) a)
 
     -- | @instance ToXML a => ToXML (FooF i a) where toXML (FooF a ...) = makeElement "Foo" a ...@
     instanceToXMLForGADT :: Dec
@@ -416,7 +418,7 @@ twimlSpecToData spec@(TwimlSpec{..}) = pure $
       [] -- [TyVarBndr]
       Nothing -- Maybe Kind
       [RecC attributesName (parametersToVarStrictTypes makeAttr parameters)] -- [Con]
-      [dataC, eqC, genericC, nfdataC, ordC, readC, showC] -- Cxt
+      [DerivClause Nothing [dataC, eqC, genericC, nfdataC, ordC, readC, showC]] -- [DerivClause]
 
     -- | @instance Default FooAttributes where def = FooAttributes def ...@
     instanceDefaultForAttributes = InstanceD Nothing [] (AppT defaultC $ ConT attributesName) [ValD (VarP $ mkName "def") (NormalB $ attributesToDefExp (ConE attributesName) parameters) []]
